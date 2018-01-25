@@ -2,6 +2,7 @@ from sympy import *
 from time import time
 from mpmath import radians
 import tf
+import numpy as np
 
 '''
 Format of test case is [ [[EE position],[EE orientation as quaternions]],[WC location],[joint angles]]
@@ -27,6 +28,11 @@ test_cases = {1:[[[2.16135,-1.42635,1.55109],
 
 
 def test_code(test_case):
+    # print(test_case[1][0])
+    # Wc = Matrix(test_case[1])
+    # Ee = Matrix(test_case[0][0])
+    # print('wc-ee:' , sqrt((Wc-Ee).dot(Wc-Ee)))
+
     ## Set up code
     ## Do not modify!
     x = 0
@@ -58,41 +64,147 @@ def test_code(test_case):
 
     req = Pose(comb)
     start_time = time()
-    
-    ########################################################################################
-    ## 
 
-    ## Insert IK code here!
-    
-    theta1 = 0
-    theta2 = 0
-    theta3 = 0
-    theta4 = 0
-    theta5 = 0
-    theta6 = 0
-
-    ## 
     ########################################################################################
-    
+    ##
+    # Create symbols
+    a, alpha, q, d = symbols('a, alpha, q, d')
+    q1, q2, q3, q4, q5, q6 = symbols('q1:7')
+
+    # Create Modified DH parameters
+    s = []
+    s.append({alpha: 0,  	a: 0, 		d: 0.75,	q: q1 		}) #T1
+    s.append({alpha: -pi/2, a: 0.35,	d: 0,		q: q2-pi/2 	}) #T2
+    s.append({alpha: 0,  	a: 1.25, 	d: 0,		q: q3 		}) #T3
+    s.append({alpha: -pi/2,	a: -0.054, 	d: 1.5,		q: q4 		}) #T4
+    s.append({alpha: pi/2, 	a: 0, 		d: 0,		q: q5 		}) #T5
+    s.append({alpha: -pi/2,	a: 0, 		d: 0,		q: q6 		}) #T6
+    s.append({alpha: 0,	    a: 0,		d: 0.303,	q: 0		}) #Tg
+
+    # Define Modified DH Transformation matrix
+    T = Matrix([	[            cos(q),           -sin(q),           0,              a],
+                    [ sin(q)*cos(alpha), cos(q)*cos(alpha), -sin(alpha),  -sin(alpha)*d],
+                    [ sin(q)*sin(alpha), cos(q)*sin(alpha),  cos(alpha),   cos(alpha)*d],
+                    [                 0,                 0,           0,              1]])
+
+    # Create individual transformation matrices, substitute constant parameters
+    TList = 7*[T[:,:]]
+    for i in range(0,len(TList)): TList[i] = TList[i].subs(s[i])
+
+    # Extract rotation matrices from the transformation matrices
+    # RotMat = []
+    # for i in range(0,len(TList)): RotMat.append(TList[i][0:3,0:3])
+
+    # completete modified D-H transformation
+    T0_G = TList[0][:,:]
+    for i in range(1,len(TList)): T0_G = T0_G*TList[i]
+    T0_G = simplify(T0_G)
+
+
+    # Define basic rotations
+    rad = symbols('rad')
+    RotX = Matrix([ [1,         0,          0,              0],
+                    [0,         cos(rad),   -sin(rad),      0],
+                    [0,         sin(rad),   cos(rad),       0],
+                    [0,         0,          0,              1]])
+
+    RotY = Matrix([	[cos(rad),	    0,		sin(rad),	    0],
+                    [0,		        1,		0,		        0],
+                    [-sin(rad),	    0,		cos(rad),	    0],
+                    [0,		        0,		0,		        1]])
+
+    RotZ = Matrix([	  [cos(rad),	   -sin(rad),	0, 	0],
+                      [sin(rad),	   cos(rad),	0,	0],
+                      [0,		       0,		    1,	0],
+                      [0,		       0,		    0,	1]   ])
+
+    ### Transform from gripper link in ROS to modified DH notation
+    R_corr = RotZ.subs(rad, np.pi) * RotY.subs(rad, -np.pi/2)
+    T_ROS = simplify(T0_G*R_corr)
+
+    ### Transform from end effector pose from gazebo to base link orientation
+
+
+    ## IK code here! ######################################################################################################################
+    #######################################################################################################################################
+
+    end_pose = Matrix([position.x, position.y, position.z])
+    (roll, pitch, yaw) = tf.transformations.euler_from_quaternion(
+        [orientation.x, orientation.y, orientation.z, orientation.w])
+
+
+    ## Calculate transform for end effectr orientation relative to base link
+    Rrpy_gaz = (RotZ.subs(rad, yaw) * RotY.subs(rad, pitch) * RotX.subs(rad, roll)).evalf() # gazebo
+    Rrpy = ( Rrpy_gaz * R_corr).evalf() # modified DH noatation
+
+
+    ## Calculate writst center position by moving 0.303 units along x axis of gazebo's gripper link
+    L_xyz = Rrpy_gaz[0:3,0]
+    R6_to_Rg = 0.303
+    Wrc = simplify(end_pose - L_xyz*R6_to_Rg) #wrist center
+    Wrc2 = Matrix([ sqrt(Wrc[0]**2+Wrc[1]**2)-0.35, 0,  Wrc[2]-0.75]) #wrist center with respect to joint 2
+
+
+    # Calculate joints 1-3 values
+    theta1 = atan2(Wrc[1], Wrc[0])
+
+    lenA = sqrt(1.5**2 + 0.054**2)
+    lenB = sqrt(Wrc2[0]**2 + Wrc2[2]**2)
+    lenC = 1.25
+
+    alph = acos( (lenB**2 + lenC**2 - lenA**2) / (2*lenB*lenC))
+    beta = acos( (lenA**2 + lenC**2 - lenB**2) / (2*lenA*lenC))
+    epsi = atan(Wrc2[2]/Wrc2[0])
+    delt = atan(0.054/1.5)
+
+    theta2 = pi/2-epsi-alph
+    theta3 = pi/2 - beta - delt
+
+    ########## Calculate joionts 4-6
+    R0_3 = (TList[0]*TList[1]*TList[2]).subs({q1:theta1, q2:theta2, q3:theta3}).evalf()
+    R3_6 = R0_3.inv('LU') * Rrpy
+    R3_6DH = simplify(TList[3]*TList[4]*TList[5]*TList[6])
+    #print(R3_6DH)
+
+    # theta5 = acos(R3_6[1,2])
+    # theta4 = asin(R3_6[2,2]/sin(theta5))
+    # theta6 = acos(R3_6[1,0]/sin(theta5))
+    theta4 = atan2(R3_6[2,2], -R3_6[0,2])
+    theta5 = atan2(sqrt(R3_6[0,2]**2 + R3_6[2,2]**2), R3_6[1,2])
+    theta6 = atan2(-R3_6[1,1], R3_6[1,0])
+
+
+
+
+
+    ##
+    ########################################################################################
+
     ########################################################################################
     ## For additional debugging add your forward kinematics here. Use your previously calculated thetas
     ## as the input and output the position of your end effector as your_ee = [x,y,z]
 
-    ## (OPTIONAL) YOUR CODE HERE!
-
+    vect =  Matrix([0,0,0,1])
+    #vectBase = (T_ROS*vect).subs({q1:theta1, q2:theta2, q3:theta3, q4:theta4, q5:theta5, q6:theta6}).evalf()
+    vectBase = (T_ROS*vect).subs({q1:-0, q2:0, q3:0, q4:0, q5:0, q6:0}).evalf()
+    #vectBase = (T_ROS*vect).subs({q1:-0.65, q2:0.45, q3:-0.36, q4:0.95, q5:0.79, q6:0.49}).evalf()
+    #print(vectBase)
+    #print(((TList[0]*TList[1]*TList[2]*TList[3])*vect).subs({q1:-0.65, q2:0.45, q3:-0.36, q4:0.95, q5:0.79, q6:0.49}).evalf())
+    print(((TList[0]*TList[1]*TList[2]*TList[3])*vect).subs({q1:theta1, q2:theta2, q3:theta3, q4:0, q5:0, q6:0}).evalf())
+    #print(T_ROS.subs({q1:0, q2:0, q3:0, q4:0, q5:0, q6:0}).evalf())
     ## End your code input for forward kinematics here!
     ########################################################################################
 
     ## For error analysis please set the following variables of your WC location and EE location in the format of [x,y,z]
-    your_wc = [1,1,1] # <--- Load your calculated WC values in this array
-    your_ee = [1,1,1] # <--- Load your calculated end effector value from your forward kinematics
+    your_wc = Wrc # <--- Load your calculated WC values in this array
+    your_ee = [vectBase[0],vectBase[1],vectBase[2]] # <--- Load your calculated end effector value from your forward kinematics
     ########################################################################################
 
     ## Error analysis
     print ("\nTotal run time to calculate joint angles from pose is %04.4f seconds" % (time()-start_time))
 
     # Find WC error
-    if not(sum(your_wc)==3):
+    if not(sum(your_wc)==2):
         wc_x_e = abs(your_wc[0]-test_case[1][0])
         wc_y_e = abs(your_wc[1]-test_case[1][1])
         wc_z_e = abs(your_wc[2]-test_case[1][2])
