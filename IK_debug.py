@@ -118,13 +118,6 @@ def test_code(test_case):
                       [0,		       0,		    1,	0],
                       [0,		       0,		    0,	1]   ])
 
-    ### Transform from gripper link in ROS to modified DH notation
-    R_corr = RotZ.subs(rad, np.pi) * RotY.subs(rad, -np.pi/2)
-    T_ROS = simplify(T0_G*R_corr)
-
-    ### Transform from end effector pose from gazebo to base link orientation
-
-
     ## IK code here! ######################################################################################################################
     #######################################################################################################################################
 
@@ -134,8 +127,13 @@ def test_code(test_case):
 
 
     ## Calculate transform for end effectr orientation relative to base link
+    ### Transform from gripper link in ROS to modified DH notation
+
+    R_corr = RotZ.subs(rad, np.pi) * RotY.subs(rad, -np.pi/2) # a correction transform from mod DH to ROS
+    T_ROS = simplify(T0_G*R_corr) # full transromation from girpper_link in ROS to base_link
+
     Rrpy_gaz = (RotZ.subs(rad, yaw) * RotY.subs(rad, pitch) * RotX.subs(rad, roll)).evalf() # gazebo
-    Rrpy = ( Rrpy_gaz * R_corr).evalf() # modified DH noatation
+    Rrpy = ( Rrpy_gaz * R_corr.inv('LU')  ).evalf() # modified DH noatation
 
 
     ## Calculate writst center position by moving 0.303 units along x axis of gazebo's gripper link
@@ -161,10 +159,11 @@ def test_code(test_case):
     theta3 = pi/2 - beta - delt
 
     ########## Calculate joionts 4-6
-    R0_3 = (TList[0]*TList[1]*TList[2]).subs({q1:theta1, q2:theta2, q3:theta3}).evalf()
-    R3_6 = R0_3.inv('LU') * Rrpy
+    T0_3 = (TList[0]*TList[1]*TList[2]).subs({q1:theta1, q2:theta2, q3:theta3}).evalf()
+    R0_3 = T0_3[0:3,0:3]
+    R3_6 = R0_3.inverse_ADJ() * Rrpy[0:3,0:3]
     R3_6DH = simplify(TList[3]*TList[4]*TList[5]*TList[6])
-    #print(R3_6DH)
+    print(R0_3)
 
     # theta5 = acos(R3_6[1,2])
     # theta4 = asin(R3_6[2,2]/sin(theta5))
@@ -172,11 +171,6 @@ def test_code(test_case):
     theta4 = atan2(R3_6[2,2], -R3_6[0,2])
     theta5 = atan2(sqrt(R3_6[0,2]**2 + R3_6[2,2]**2), R3_6[1,2])
     theta6 = atan2(-R3_6[1,1], R3_6[1,0])
-
-
-
-
-
     ##
     ########################################################################################
 
@@ -185,12 +179,12 @@ def test_code(test_case):
     ## as the input and output the position of your end effector as your_ee = [x,y,z]
 
     vect =  Matrix([0,0,0,1])
-    #vectBase = (T_ROS*vect).subs({q1:theta1, q2:theta2, q3:theta3, q4:theta4, q5:theta5, q6:theta6}).evalf()
-    vectBase = (T_ROS*vect).subs({q1:-0, q2:0, q3:0, q4:0, q5:0, q6:0}).evalf()
+    vectBase = (T_ROS*vect).subs({q1:theta1, q2:theta2, q3:theta3, q4:theta4, q5:theta5, q6:theta6}).evalf()
+    #vectBase = (T_ROS*vect).subs({q1:-0, q2:0, q3:0, q4:0, q5:0, q6:0}).evalf()
     #vectBase = (T_ROS*vect).subs({q1:-0.65, q2:0.45, q3:-0.36, q4:0.95, q5:0.79, q6:0.49}).evalf()
     #print(vectBase)
     #print(((TList[0]*TList[1]*TList[2]*TList[3])*vect).subs({q1:-0.65, q2:0.45, q3:-0.36, q4:0.95, q5:0.79, q6:0.49}).evalf())
-    print(((TList[0]*TList[1]*TList[2]*TList[3])*vect).subs({q1:theta1, q2:theta2, q3:theta3, q4:0, q5:0, q6:0}).evalf())
+    #print(((TList[0]*TList[1]*TList[2]*TList[3])*vect).subs({q1:theta1, q2:theta2, q3:theta3, q4:0, q5:0, q6:0}).evalf())
     #print(T_ROS.subs({q1:0, q2:0, q3:0, q4:0, q5:0, q6:0}).evalf())
     ## End your code input for forward kinematics here!
     ########################################################################################
@@ -248,6 +242,6 @@ def test_code(test_case):
 
 if __name__ == "__main__":
     # Change test case number for different scenarios
-    test_case_number = 1
+    test_case_number = 3
 
     test_code(test_cases[test_case_number])
