@@ -100,6 +100,12 @@ def test_code(test_case):
     for i in range(1,len(TList)): T0_G = T0_G*TList[i]
     T0_G = simplify(T0_G)
 
+    # T0_3 = TList[0][:,:]
+    # for i in range(1,3): T0_3 = T0_3*TList[i]
+    # T0_G = simplify(T0_3)
+    # print(T0_G[0:3,0:3])
+
+
 
     # Define basic rotations
     rad = symbols('rad')
@@ -118,6 +124,9 @@ def test_code(test_case):
                       [0,		       0,		    1,	0],
                       [0,		       0,		    0,	1]   ])
 
+    # y, p, r = symbols('y p r')
+    # print(  simplify((RotZ.subs(rad, y) * RotY.subs(rad, p) * RotX.subs(rad, r)))[0:3,0:3]  ) #Rrpy_gaz
+
     ## IK code here! ######################################################################################################################
     #######################################################################################################################################
 
@@ -130,7 +139,10 @@ def test_code(test_case):
     ### Transform from gripper link in ROS to modified DH notation
 
     R_corr = RotZ.subs(rad, np.pi) * RotY.subs(rad, -np.pi/2) # a correction transform from mod DH to ROS
+
     T_ROS = simplify(T0_G*R_corr) # full transromation from girpper_link in ROS to base_link
+
+    #print(R_corr.inv('LU').evalf()[0:3,0:3])
 
     Rrpy_gaz = (RotZ.subs(rad, yaw) * RotY.subs(rad, pitch) * RotX.subs(rad, roll)).evalf() # gazebo
     Rrpy = ( Rrpy_gaz * R_corr.inv('LU')  ).evalf() # modified DH noatation
@@ -142,19 +154,15 @@ def test_code(test_case):
     Wrc = simplify(end_pose - L_xyz*R6_to_Rg) #wrist center
     Wrc2 = Matrix([ sqrt(Wrc[0]**2+Wrc[1]**2)-0.35, 0,  Wrc[2]-0.75]) #wrist center with respect to joint 2
 
-
     # Calculate joints 1-3 values
     theta1 = atan2(Wrc[1], Wrc[0])
-
     lenA = sqrt(1.5**2 + 0.054**2)
     lenB = sqrt(Wrc2[0]**2 + Wrc2[2]**2)
     lenC = 1.25
-
     alph = acos( (lenB**2 + lenC**2 - lenA**2) / (2*lenB*lenC))
     beta = acos( (lenA**2 + lenC**2 - lenB**2) / (2*lenA*lenC))
     epsi = atan(Wrc2[2]/Wrc2[0])
     delt = atan(0.054/1.5)
-
     theta2 = pi/2-epsi-alph
     theta3 = pi/2 - beta - delt
 
@@ -163,7 +171,7 @@ def test_code(test_case):
     R0_3 = T0_3[0:3,0:3]
     R3_6 = R0_3.inverse_ADJ() * Rrpy[0:3,0:3]
     R3_6DH = simplify(TList[3]*TList[4]*TList[5]*TList[6])
-    print(R0_3)
+    #print(R0_3)
 
     # theta5 = acos(R3_6[1,2])
     # theta4 = asin(R3_6[2,2]/sin(theta5))
@@ -242,6 +250,6 @@ def test_code(test_case):
 
 if __name__ == "__main__":
     # Change test case number for different scenarios
-    test_case_number = 3
+    test_case_number = 1
 
     test_code(test_cases[test_case_number])

@@ -153,8 +153,9 @@ def test_code(test_case):
 
     R0_3 = T0_1[0:3,0:3] * T1_2[0:3,0:3] * T2_3[0:3,0:3]
     R0_3 = R0_3.evalf(subs={q1:theta1, q2:theta2, q3:theta3})
+    print(R0_3)
 
-    R3_6 = R0_3.inv("LU") * ROT_EE
+    R3_6 = R0_3.inverse_ADJ() * ROT_EE
 
 
     theta4 = atan2(R3_6[2,2], -R3_6[0,2])
@@ -233,6 +234,6 @@ def test_code(test_case):
 
 if __name__ == "__main__":
     # Change test case number for different scenarios
-    test_case_number = 1
+    test_case_number = 3
 
     test_code(test_cases[test_case_number])

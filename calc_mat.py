@@ -45,9 +45,9 @@ R_z = Matrix([	[cos(np.pi),	-sin(np.pi),	0, 	0],
 		[0,		0,		1,	0],
 		[0,		0,		0,	1]])
 
-R_y = Matrix([	[cos(np.pi),	0,		-sin(np.pi),	0],
+R_y = Matrix([	[cos(np.pi),	0,		sin(np.pi),	0],
 		[0,		1,		0,		0],
-		[sin(np.pi),	0,		cos(np.pi),	0],
+		[-sin(np.pi),	0,		cos(np.pi),	0],
 		[0,		0,		0,		1]])
 R_corr = simplify(R_z*R_y)
 T_ROS = T0_G*R_corr
@@ -57,7 +57,8 @@ T_ROS = T0_G*R_corr
 # Define angle of rotations for all joints
 #s_q = {q1:0,q2:0,q3:0,q4:0,q5:0,q6:0}
 #s_q = {q1:-1.87,q2:0.86,q3:-1.77,q4:1.98,q5:0.22,q6:-4.84}
-s_q = {q1:-2.98,q2:0.12,q3:-3.01,q4:-3.4,q5:-0.37,q6:-5.05}
+s_q = {q1:1.54,q2:-0.38,q3:0.86,q4:-4.58,q5:0.66,q6:-5.81}
+
 
 # Crate vector representing gripper position in gripper link coordinates
 vec = Matrix([0,0,0,1])
@@ -68,9 +69,3 @@ vec_base = T_ROS*vec
 # Substitute joint angles
 vec_base = vec_base.subs(s_q)
 print(vec_base.evalf())
-
-
-
-
-
-
