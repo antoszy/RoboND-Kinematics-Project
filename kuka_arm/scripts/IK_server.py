@@ -80,7 +80,7 @@ def handle_calculate_IK(req):
         (roll, pitch, yaw) = tf.transformations.euler_from_quaternion(
             [req.poses[x].orientation.x, req.poses[x].orientation.y,
                 req.poses[x].orientation.z, req.poses[x].orientation.w])
-        end_pose = [px,py,pz]
+        end_pose = Matrix([px,py,pz])
 
         ### Your IK code here
 	    #### Compensate for rotation discrepancy between DH parameters and Gazebo
