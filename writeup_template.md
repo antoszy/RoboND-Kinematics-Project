@@ -17,14 +17,14 @@
 
 [//]: # (Image References)
 
-[im1]: ./misc_images/img1.jpg
-[im2]: ./misc_images/img2.jpg
-[im3]: ./misc_images/img3.jpg
-[im4]: ./misc_images/img4.jpg
-[im5]: ./misc_images/img5.jpg
-[im6]: ./misc_images/img6.jpg
-[im7]: ./misc_images/img7.jpg
-[im8]: ./misc_images/img8.jpg
+[im1]: ./misc_images/img1
+[im2]: ./misc_images/img2
+[im3]: ./misc_images/img3
+[im4]: ./misc_images/img4
+[im5]: ./misc_images/img5
+[im6]: ./misc_images/img6
+[im7]: ./misc_images/img7
+[im8]: ./misc_images/img8
 
 ## [Rubric](https://review.udacity.com/#!/rubrics/972/view) Points
 ### Here I will consider the rubric points individually and describe how I addressed each point in my implementation.  
@@ -48,12 +48,19 @@ From this schematic, a modified DH parameters were derived:
 ![DH paremeters table][im2]
 
 The direction of theta anlges was obtaind from forward_kinematics demo. The values of constant DH parameters were obtained from urdf file:
+
 d_1 = 0.44+0.42 = 0.75
+
 a_1 = 0.35
+
 a_2 = 1.25
+
 a_3 = -0.054
+
 d_4 = 0.96 + 0.54 = 1.5
+
 d_G = 0.193 + 0.11 = 0.303
+
 
 
 #### 2. Using the DH parameter table you derived earlier, create individual transformation matrices about each joint. In addition, also generate a generalized homogeneous transform between base_link and gripper_link using only end-effector(gripper) pose.
@@ -74,7 +81,9 @@ The values were substituted into transforomation matrices for each joitn: T0_1 .
 ![Transromation matrix][im3]
 
 To account for the discrepancy between ROS and modified DH one needs a correction matrix:
+
 T_corr = Rot_z(180) x Rot_y(-90)          (1)
+
 The coordinate frame transition can be seen below:
 
 ![Coordinate frame transition][im7]
@@ -94,12 +103,15 @@ First we need to find the position of the spherical wrist center from end effect
 Rrpy_gaz = RotZ(yaw) * RotY(pitch) * RotX(roll)         (3)
 
 The first column of this matrix is a versor (vector of length 1) which is oriented along the x axis of the local coordinate frame of the gripper. To find the wrist center we have to create vector of length d_G which is oriented along x axis of the local coordinate frame. To obtain wrist center position in global coordinate frame, this vector needs to be subtracted from the vector representing position of end effector (in global coordinate frame):
+
 Wrc = [x_g, y_g, z_g] - [l_x, l_y, l_z] x d_G         (4)
 
 Theta 1 is a rotation in the x,y plane and can be found as:
+
 theta1 = atan2(Wrc_y, Wrc_x)          (5)
 
 To simplify calculations (and drawing) I moved the center of coordinate frame to joint 2. To find wrist center relative to joint 2 the following equation was applied:
+
 Wrc2 =  [ sqrt(Wrc_x^2+Wrc_y^2)-0.35,    0,     Wrc_z-0.75])          (6)
 
 ![Kinematics of wrist center][im5]
@@ -132,14 +144,21 @@ R3_G =
 By equating (8) and (9) one can derive equations for theta 4-6 as:
 
 theta4 = atan2( R3_6[2,2], -R3_6[0,2] )
+
 theta5 = atan2( sqrt(R3_6[0,2]^2 + R3_6[2,2]^2), R3_6[1,2] )
+
 theta6 = atan2( -R3_6[1,1], R3_6[1,0] )
+
 
 The whole derivation was tested in IK_debug script.
 For matrix inversion, a method using the adjugate matrix and a determinant was used as it gave better result:
+
 End effector error for x position is: 0.00000000
+
 End effector error for y position is: 0.00000000
+
 End effector error for z position is: 0.00000000
+
 Overall end effector offset is: 0.00000000 units
 
 The results were better for all 3 cases when inverse_ADJ instead of inverse_LU was used. Script 'inversion_problem.py' shows how little numerical errors in matrix can lead to totally different and erroneous inversion results when using LU factorization method.  
