@@ -171,7 +171,7 @@ def test_code(test_case):
     R0_3 = T0_3[0:3,0:3]
     R3_6 = R0_3.inverse_ADJ() * Rrpy[0:3,0:3]
     R3_6DH = simplify(TList[3]*TList[4]*TList[5]*TList[6])
-    #print(R0_3)
+    print(R3_6DH)
 
     # theta5 = acos(R3_6[1,2])
     # theta4 = asin(R3_6[2,2]/sin(theta5))
